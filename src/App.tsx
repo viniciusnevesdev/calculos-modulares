@@ -11,7 +11,7 @@ import './styles.css';
 
 type IconName = 'plus' | 'pencil' | 'ellipsis' | 'trash' | 'chevron-right';
 function Icon({ name }: { name: IconName }) {
-  return <img className="icon" src={'/mmu-icons/' + name + '.svg'} alt="" aria-hidden="true"/>;
+  return <img className="icon" src={import.meta.env.BASE_URL + 'mmu-icons/' + name + '.svg'} alt="" aria-hidden="true"/>;
 }
 function KindText({ kind }: {kind: Board['kind']}) {
   return <span className="kind-tag">{kind === 'goal' ? 'Meta' : 'Calculadora'}</span>;

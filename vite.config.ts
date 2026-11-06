@@ -2,6 +2,7 @@ import { defineConfig } from 'vitest/config';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
+  base: process.env.GITHUB_PAGES === 'true' ? '/calculos-modulares/' : '/',
   plugins: [VitePWA({
     registerType: 'autoUpdate',
     includeAssets: ['mmu-icons/*.svg'],
