@@ -157,3 +157,11 @@ h1, h2, h3, p { margin-top: 0; }
   .board-card-actions .danger-text .icon, .danger-text .icon { filter: invert(21%) sepia(99%) saturate(4249%) hue-rotate(355deg); }
 }
 @media(prefers-reduced-motion:reduce) { * { animation:none !important; transition:none !important; } }
+
+/* Calculadora com múltiplos campos: mantém os inputs existentes e permite expansão. */
+.calculator-extra-value { display: grid; grid-template-columns: minmax(0, 1fr) 36px; align-items: end; gap: 9px; margin-top: 13px; }
+.calculator-extra-value .amount-control { min-width: 0; }
+.calculator-extra-value .calculator-remove-value { margin-bottom: 8px; min-height: 36px; }
+.calculator-add-value { width: 100%; margin-top: 16px; gap: 8px; display: flex; align-items: center; justify-content: center; }
+.calculator-add-value .icon { width: 15px; height: 15px; }
+.calculator-operation-note { margin-top: 12px; }

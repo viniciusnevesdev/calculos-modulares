@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { newId } from './domain/ids';
 import type { Board, CalculatorBoard, Entry, GoalBoard, Operation } from './domain/boards';
-import { newBoard, duplicateBoard, newEntry, swapOperands } from './domain/boards';
-import { calculate, goalSummary } from './domain/math';
+import { newBoard, duplicateBoard, newEntry, swapOperands, addCalculatorValue, updateCalculatorValue, removeCalculatorValue } from './domain/boards';
+import { calculateMany, goalSummary } from './domain/math';
 import { Decimal, formatDecimal, money } from './domain/numbers';
 import { storage } from './storage/db';
 import { WriteQueue } from './storage/writeQueue';
@@ -23,7 +23,7 @@ function GoalPreview({ board }: {board: GoalBoard}) {
   return <div className="library-progress"><span className="preview-sub">{money(result.sum)} recebidos</span><span className="preview-sub">{formatDecimal(result.percent,1)}%</span><div className="thin-track"><div style={{width:result.visualPercent+'%'}}/></div></div>;
 }
 function CalculatorPreview({board}: {board: CalculatorBoard}) {
-  const result = calculate(board.a, board.b, board.operation);
+  const result = calculateMany([board.a, board.b, ...(board.extraValues ?? []).map(value => value.amount)], board.operation);
   return <span className="preview-sub">{result.ok ? (board.display === 'brl' ? money(result.value) : formatDecimal(result.value, Math.min(6,result.value.decimalPlaces()))) : 'Aguardando valores'}</span>;
 }
 
@@ -86,7 +86,7 @@ const ops: {symbol:string, title:string, value: Operation}[] = [
   {symbol:'÷',title:'Dividir',value:'/'},
 ];
 function CalculatorView({board, update}: {board: CalculatorBoard, update:(board:CalculatorBoard)=>void}) {
-  const result = calculate(board.a,board.b,board.operation);
+  const result = calculateMany([board.a, board.b, ...(board.extraValues ?? []).map(value => value.amount)], board.operation);
   const display = result.ok
     ? board.display === 'brl' ? money(result.value)
       : formatDecimal(result.value, Math.min(6, result.value.toDecimalPlaces(6, Decimal.ROUND_HALF_UP).decimalPlaces()))
@@ -97,13 +97,23 @@ function CalculatorView({board, update}: {board: CalculatorBoard, update:(board:
         <button type="button" className={board.display==='brl' ? 'selected' : ''} onClick={()=>update({...board,display:'brl'})}>R$</button>
         <button type="button" className={board.display==='number' ? 'selected' : ''} onClick={()=>update({...board,display:'number'})}>Número</button>
       </div></div>
-      <AmountInput label="Primeiro valor" currency={board.display==='brl'} value={board.a} onChange={v=>update({...board,a:v})}/>
+      <AmountInput label="Valor 1" currency={board.display==='brl'} value={board.a} onChange={v=>update({...board,a:v})}/>
       <div className="operations" role="group" aria-label="Operação matemática">{ops.map(o=>
         <button key={o.value} title={o.title} type="button" aria-label={o.title} aria-pressed={board.operation===o.value}
           className={board.operation===o.value ? 'selected' : ''} onClick={()=>update({...board,operation:o.value})}>{o.symbol}</button>
       )}</div>
-      <AmountInput label="Segundo valor" currency={board.display==='brl'} value={board.b} onChange={v=>update({...board,b:v})}/>
-      <button className="secondary-button swap" type="button" onClick={()=>update(swapOperands(board))}>Inverter os valores</button>
+      <AmountInput label="Valor 2" currency={board.display==='brl'} value={board.b} onChange={v=>update({...board,b:v})}/>
+      {(board.extraValues ?? []).map((value,index)=><div className="calculator-extra-value" key={value.id}>
+        <AmountInput label={'Valor '+(index+3)} currency={board.display==='brl'} value={value.amount}
+          onChange={amount=>update(updateCalculatorValue(board,value.id,amount))}/>
+        <button type="button" className="icon-button danger calculator-remove-value"
+          onClick={()=>update(removeCalculatorValue(board,value.id))}
+          aria-label={'Excluir valor '+(index+3)} title={'Excluir valor '+(index+3)}><Icon name="trash"/></button>
+      </div>)}
+      <button className="secondary-button calculator-add-value" type="button"
+        onClick={()=>update(addCalculatorValue(board))}><Icon name="plus"/> Adicionar valor</button>
+      <p className="muted calculator-operation-note">A operação selecionada é aplicada a todos os {2+(board.extraValues?.length ?? 0)} valores, na ordem.</p>
+      <button className="secondary-button swap" type="button" onClick={()=>update(swapOperands(board))}>Inverter valores 1 e 2</button>
     </section>
     <section className="panel summary-panel">
       <span className="section-eyebrow">RESULTADO AUTOMÁTICO</span>

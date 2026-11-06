@@ -2,12 +2,26 @@ import { Decimal, parseRaw } from './numbers';
 import type { Operation } from './boards';
 export type Calculation = { ok: true; value: Decimal } | { ok: false; error: string };
 export function calculate(a: string, b: string, operation: Operation): Calculation {
-  const left = parseRaw(a), right = parseRaw(b);
-  if (left.kind !== 'valid' || right.kind !== 'valid') return { ok: false, error: 'Preencha os dois valores com números válidos.' };
-  if (operation === '/' && right.value.isZero()) return { ok: false, error: 'Não é possível dividir por zero.' };
-  const value = operation === '+' ? left.value.plus(right.value)
-    : operation === '-' ? left.value.minus(right.value)
-    : operation === '*' ? left.value.times(right.value) : left.value.div(right.value);
+  return calculateMany([a, b], operation);
+}
+export function calculateMany(amounts: string[], operation: Operation): Calculation {
+  if (amounts.length < 2) return { ok: false, error: 'Adicione pelo menos dois valores.' };
+  const parsed = amounts.map(parseRaw);
+  if (parsed.some(item => item.kind !== 'valid')) {
+    return { ok: false, error: 'Preencha todos os valores com números válidos.' };
+  }
+  // Every value was validated above. Reduce left-to-right, using Decimal for exact sums.
+  const numbers = parsed.map(item => {
+    if (item.kind !== 'valid') throw new Error('Valor inválido após validação');
+    return item.value;
+  });
+  let value = numbers[0];
+  for (const next of numbers.slice(1)) {
+    if (operation === '/' && next.isZero()) return { ok: false, error: 'Não é possível dividir por zero.' };
+    value = operation === '+' ? value.plus(next)
+      : operation === '-' ? value.minus(next)
+      : operation === '*' ? value.times(next) : value.div(next);
+  }
   return { ok: true, value };
 }
 export function goalSummary(targetRaw: string, amounts: string[]) {
