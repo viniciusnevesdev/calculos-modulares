@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { newId } from './domain/ids';
 import type { Board, CalculatorBoard, Entry, GoalBoard, Operation } from './domain/boards';
 import { newBoard, duplicateBoard, newEntry, swapOperands, addCalculatorValue, updateCalculatorValue, removeCalculatorValue } from './domain/boards';
@@ -6,6 +6,7 @@ import { calculateMany, goalSummary } from './domain/math';
 import { Decimal, formatDecimal, money } from './domain/numbers';
 import { storage } from './storage/db';
 import { WriteQueue } from './storage/writeQueue';
+import { backupFilename, makeBackup, MAX_BACKUP_BYTES, parseBackup } from './domain/backup';
 import { AmountInput } from './components/AmountInput';
 import './styles.css';
 
@@ -130,6 +131,9 @@ export default function App() {
   const [status,setStatus] = useState<'saved'|'saving'|'error'>('saved');
   const [error,setError] = useState('');
   const queue = useRef(new WriteQueue());
+  const backupFileRef = useRef<HTMLInputElement>(null);
+  const [backupMessage,setBackupMessage] = useState('');
+  const [backupBusy,setBackupBusy] = useState(false);
   useEffect(()=>{
     let alive=true;
     storage.list().then(items=>{if(alive){boardsRef.current=items;setBoards(items);}})
@@ -146,6 +150,72 @@ export default function App() {
     queue.current.run(()=>storage.put(updated))
       .then(()=>{if(queue.current.pending===0)setStatus('saved');})
       .catch(e=>{setStatus('error');setError('Falha ao salvar. Mantenha o aplicativo aberto e tente novamente. '+String(e));});
+  }
+  function exportBackup() {
+    try {
+      const backup = makeBackup(boardsRef.current);
+      const filename = backupFilename();
+      const file = new File([JSON.stringify(backup, null, 2)], filename, {type:'application/json'});
+      if (file.size > MAX_BACKUP_BYTES) throw new Error('Backup maior que 20 MB. Reduza os quadros antes de exportar.');
+      // Safari on iPhone can save the shared file directly to the Files app.
+      if (typeof navigator.share === 'function' && typeof navigator.canShare === 'function'
+        && navigator.canShare({files:[file]})) {
+        void navigator.share({files:[file],title:'Backup Cálculos Modulares'}).then(
+          ()=>setBackupMessage('Backup compartilhado. Guarde o arquivo em um local seguro.'),
+          (e: unknown)=>{if (!(e instanceof Error) || e.name !== 'AbortError') {
+            setBackupMessage('Não foi possível compartilhar. Tente novamente.');
+          }}
+        );
+        return;
+      }
+      const url = URL.createObjectURL(file);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      // Do not revoke immediately: Safari may need time to start the download.
+      window.setTimeout(()=>URL.revokeObjectURL(url),60000);
+      setBackupMessage('Backup preparado. Verifique os downloads do navegador e guarde o arquivo.');
+    } catch(e) {
+      setBackupMessage(e instanceof Error?e.message:'Não foi possível exportar o backup.');
+    }
+  }
+  async function importBackupFile(event: ChangeEvent<HTMLInputElement>) {
+    const file=event.currentTarget.files?.[0];
+    event.currentTarget.value='';
+    if (!file) return;
+    let writing = false;
+    try {
+      if (file.size > MAX_BACKUP_BYTES) throw new Error('O arquivo excede o limite de 20 MB.');
+      const backup=parseBackup(await file.text());
+      const message = 'Importar ' + backup.boards.length + ' quadro(s) deste backup? '
+        + 'Os quadros que já existem serão preservados; IDs repetidos serão ignorados. '
+        + 'Nenhum dado será apagado ou sobrescrito.';
+      if (!window.confirm(message)) {
+        setBackupMessage('Importação cancelada. Nenhum quadro foi alterado.');
+        return;
+      }
+      setBackupBusy(true);
+      writing = true;
+      setStatus('saving');
+      // Writes queued before import must finish before checking for collisions.
+      const {merged,summary}=await queue.current.run(async()=>{
+        const summary=await storage.importMissing(backup.boards);
+        const merged=await storage.list();
+        return {merged,summary};
+      });
+      updateState(merged);
+      setStatus('saved');
+      setBackupMessage('Importação concluída: '+summary.added+' quadro(s) adicionado(s), '
+        +summary.skipped+' já existente(s) preservado(s).');
+    } catch(e) {
+      if (writing) setStatus('error');
+      setBackupMessage(e instanceof Error?e.message:'Não foi possível importar o backup. Nada foi alterado.');
+    } finally {
+      setBackupBusy(false);
+    }
   }
   function create(kind:Board['kind']) {const b=newBoard(kind);save(b);setActiveId(b.id);}
   function remove(board:Board) {
@@ -192,6 +262,25 @@ export default function App() {
             <button type="button" className="danger-text" onClick={()=>remove(board)}><Icon name="trash"/>Excluir</button>
           </div>
         </article>)}</div>}
+        <section className="panel backup-panel" aria-label="Backup dos quadros">
+          <div><h2>Backup dos quadros</h2>
+            <p className="muted">Salve uma cópia das metas e calculadoras. A importação adiciona quadros sem substituir os existentes.</p>
+          </div>
+          <div className="backup-buttons">
+            <button type="button" className="secondary-button" onClick={exportBackup} disabled={backupBusy}>
+              Exportar backup
+            </button>
+            <button type="button" className="secondary-button" onClick={()=>backupFileRef.current?.click()} disabled={backupBusy}>
+              Importar backup
+            </button>
+          </div>
+          <input className="backup-file-input" ref={backupFileRef} type="file"
+            accept=".json,application/json" aria-label="Selecionar arquivo de backup"
+            onChange={importBackupFile}/>
+          {backupBusy && <p className="backup-feedback" role="status">Importando quadros…</p>}
+          {backupMessage && <p className="backup-feedback" role="status">{backupMessage}</p>}
+          <p className="backup-disclaimer">O arquivo contém seus nomes e valores. Guarde em local seguro.</p>
+        </section>
       </>}
     </main>
     <footer className="app-footer">Os dados ficam neste aparelho. O armazenamento local não substitui um backup.</footer>

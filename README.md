@@ -80,3 +80,14 @@ devem gerar commits neste repo e atualização separada da Matriz local.
 Correção já incorporada: geração segura de IDs em LAN HTTP (newId, Web Crypto).
 Testes automatizados: 21/21 na última execução verificada.
 Validação real do app no Safari/iPhone ainda pendente.
+
+## Backup local JSON — 2026-11-06 (implementado)
+
+- GitHub Pages oficial: https://viniciusnevesdev.github.io/calculos-modulares/.
+- Na Biblioteca, seção "Backup dos quadros": Exportar backup / Importar backup.
+- Exportação gera `CalculosModulares_Backup_AAAA-MM-DD.json` com todas as metas/calculadoras, IDs e campos de valores, sem alterar os dados. No iPhone, utiliza a folha de compartilhamento se o navegador permitir o compartilhamento de arquivos; caso contrário, efetua download JSON.
+- Importação exige arquivo do Cálculos Modulares versão 1, valida todos os quadros e IDs, solicita confirmação explícita, adiciona apenas os quadros ausentes e **nunca sobrescreve nem exclui** os existentes. IDs repetidos são ignorados e contabilizados.
+- Importação em transação IndexedDB atômica, serializada com a fila de gravações existentes; arquivo incompatível/repetido/inválido é recusado antes da gravação. Limite de arquivo 20 MB.
+- Os dados permanecem locais; backup **não é sincronização automática**. Usuário deve guardar cópia em Arquivos/iCloud/outro local de sua escolha. O JSON contém nomes e valores pessoais — protegê-lo ao compartilhar.
+- Testes unitários de exportação e validação do JSON; teste end-to-end com navegador será documentado após execução. A compatibilidade de exportar/importar na folha de compartilhamento do Safari real ainda necessita validação no dispositivo.
+- Repositório GitHub está público, conforme decisão do usuário. Branch `gh-pages` contém os artefatos publicados; repositório `main` contém a fonte. GitHub Actions de deploy automático ainda não foi configurado.

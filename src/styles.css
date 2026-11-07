@@ -165,3 +165,12 @@ h1, h2, h3, p { margin-top: 0; }
 .calculator-add-value { width: 100%; margin-top: 16px; gap: 8px; display: flex; align-items: center; justify-content: center; }
 .calculator-add-value .icon { width: 15px; height: 15px; }
 .calculator-operation-note { margin-top: 12px; }
+
+/* Backup de metas e calculadoras, interface compacta no iPhone. */
+.backup-panel { margin-top: 20px; display: grid; gap: 12px; }
+.backup-panel h2 { margin-bottom: 5px; }
+.backup-buttons { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.backup-buttons button { min-height: 44px; padding: 10px 7px; }
+.backup-file-input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.backup-feedback { margin: 0; padding: 9px 10px; border-radius: 9px; background: var(--surface-2); font-size: 12px; line-height: 1.5; }
+.backup-disclaimer { color: var(--muted); font-size: 11px; line-height: 1.4; margin: 0; }

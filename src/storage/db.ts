@@ -17,4 +17,16 @@ export const storage = {
   },
   async put(board: Board) { await db.boards.put(board); },
   async remove(id: string) { await db.boards.delete(id); },
+  /** Atomic merge: never overwrite or delete an existing board, even on matching IDs. */
+  async importMissing(incoming: Board[]): Promise<{ added: number; skipped: number }> {
+    if (!incoming.every(isBoard) || new Set(incoming.map(b => b.id)).size !== incoming.length) {
+      throw new Error('Backup com quadros inválidos ou duplicados. Nada foi alterado.');
+    }
+    return db.transaction('rw', db.boards, async () => {
+      const present = await db.boards.bulkGet(incoming.map(board => board.id));
+      const missing = incoming.filter((_, index) => present[index] === undefined);
+      if (missing.length) await db.boards.bulkAdd(missing);
+      return { added: missing.length, skipped: incoming.length - missing.length };
+    });
+  },
 };
